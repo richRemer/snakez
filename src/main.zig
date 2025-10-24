@@ -30,7 +30,7 @@ fn run() error{ OutOfMemory, SDLError }!void {
     sdl.setMainReady();
 
     try sdl.setAppMetadata(name, version, ident);
-    try sdl.init(.{ .video = true });
+    try sdl.init(.{ .video = true, .gamepad = true });
 
     const window = try sdl.Window.init(
         std.heap.smp_allocator,
@@ -43,6 +43,17 @@ fn run() error{ OutOfMemory, SDLError }!void {
 
     const renderer = try sdl.Renderer.init(window);
     defer renderer.deinit();
+
+    var it = try sdl.Gamepad.Iterator.init();
+    while (it.next()) |id| {
+        const gamepad = try sdl.Gamepad.open(id);
+
+        std.log.debug("gamepad #{d} ID: {d}", .{ id, gamepad.id() });
+        std.log.debug("gamepad #{d} Firmware Version: {d}", .{ id, gamepad.firmwareVersion() });
+        std.log.debug("gamepad #{d} Name: {s}", .{ id, gamepad.name() });
+
+        gamepad.close();
+    }
 
     while (!done) {
         while (sdl.pollEvent()) |event| {

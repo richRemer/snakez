@@ -50,6 +50,75 @@ pub fn setMainReady() void {
     sdl3.SDL_SetMainReady();
 }
 
+pub const Gamepad = struct {
+    ptr: *sdl3.SDL_Gamepad,
+
+    /// Iterate over detected gamepads.  Resources used during iteration are
+    /// cleaned up after the final iteration.  If iteration is not completed,
+    /// call .flush() to ensure resources are cleaned up.
+    pub const Iterator = struct {
+        ids: [*c]sdl3.SDL_JoystickID,
+        count: c_int,
+        index: u8,
+
+        pub fn init() error{SDLError}!Iterator {
+            var count: c_int = 0;
+
+            if (sdl3.SDL_GetGamepads(&count)) |ids| {
+                return .{ .ids = ids, .count = count, .index = 0 };
+            } else {
+                return error.SDLError;
+            }
+        }
+
+        pub fn next(this: *Iterator) ?sdl3.SDL_JoystickID {
+            if (this.index < this.count) {
+                const joystickId = this.ids[this.index];
+                this.index += 1;
+                return joystickId;
+            } else {
+                this.flush();
+                return null;
+            }
+        }
+
+        pub fn flush(this: *Iterator) void {
+            this.index = @intCast(this.count);
+            sdl3.SDL_free(this.ids);
+        }
+    };
+
+    pub fn open(joystickId: sdl3.SDL_JoystickID) error{SDLError}!Gamepad {
+        if (sdl3.SDL_OpenGamepad(joystickId)) |gamepad| {
+            return .{ .ptr = gamepad };
+        } else {
+            return error.SDLError;
+        }
+    }
+
+    pub fn close(this: Gamepad) void {
+        sdl3.SDL_CloseGamepad(this.ptr);
+    }
+
+    pub fn firmwareVersion(this: Gamepad) u16 {
+        return sdl3.SDL_GetGamepadFirmwareVersion(this.ptr);
+    }
+
+    pub fn id(this: Gamepad) sdl3.SDL_JoystickID {
+        return sdl3.SDL_GetGamepadID(this.ptr);
+    }
+
+    pub fn name(this: Gamepad) []const u8 {
+        const ptr: [*c]const u8 = sdl3.SDL_GetGamepadName(this.ptr);
+        var slice: []const u8 = &.{};
+
+        slice.ptr = @ptrCast(ptr);
+        slice.len = std.mem.len(ptr);
+
+        return slice;
+    }
+};
+
 pub const Renderer = struct {
     ptr: *sdl3.SDL_Renderer,
 
