@@ -5,6 +5,8 @@ const title = "Snakez";
 const name = "snakez";
 const ident = "page.remer." ++ name;
 const version = "0.0";
+const size = 64;
+const scale = 10;
 
 pub fn main() void {
     var status: u8 = 0;
@@ -44,21 +46,27 @@ fn run() error{ OutOfMemory, SDLError }!void {
     const renderer = try sdl.Renderer.init(window);
     defer renderer.deinit();
 
-    var it = try sdl.Gamepad.Iterator.init();
-    while (it.next()) |id| {
-        const gamepad = try sdl.Gamepad.open(id);
-
-        std.log.debug("gamepad #{d} ID: {d}", .{ id, gamepad.id() });
-        std.log.debug("gamepad #{d} Firmware Version: {d}", .{ id, gamepad.firmwareVersion() });
-        std.log.debug("gamepad #{d} Name: {s}", .{ id, gamepad.name() });
-
-        gamepad.close();
-    }
+    try window.setSize(size * scale, size * scale);
 
     while (!done) {
         while (sdl.pollEvent()) |event| {
-            if (event.type == sdl.sdl3.SDL_EVENT_QUIT) {
-                done = true;
+            switch (event.type) {
+                sdl.sdl3.SDL_EVENT_WINDOW_EXPOSED => {
+                    try renderer.setDrawColor(0, 0, 0, 255);
+                    try renderer.clear();
+                    try renderer.present();
+                },
+                sdl.sdl3.SDL_EVENT_KEY_DOWN => {
+                    _ = switch (event.key.key) {
+                        sdl.sdl3.SDLK_DOWN => try window.setTitle("down"),
+                        sdl.sdl3.SDLK_LEFT => try window.setTitle("left"),
+                        sdl.sdl3.SDLK_RIGHT => try window.setTitle("right"),
+                        sdl.sdl3.SDLK_UP => try window.setTitle("up"),
+                        else => false,
+                    };
+                },
+                sdl.sdl3.SDL_EVENT_QUIT => done = true,
+                else => {},
             }
         }
     }

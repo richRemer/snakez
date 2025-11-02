@@ -133,6 +133,24 @@ pub const Renderer = struct {
     pub fn deinit(this: Renderer) void {
         sdl3.SDL_DestroyRenderer(this.ptr);
     }
+
+    pub fn clear(this: Renderer) !void {
+        if (!sdl3.SDL_RenderClear(this.ptr)) {
+            return error.SDLError;
+        }
+    }
+
+    pub fn present(this: Renderer) !void {
+        if (!sdl3.SDL_RenderPresent(this.ptr)) {
+            return error.SDLError;
+        }
+    }
+
+    pub fn setDrawColor(this: Renderer, r: u8, g: u8, b: u8, a: u8) !void {
+        if (!sdl3.SDL_SetRenderDrawColor(this.ptr, r, g, b, a)) {
+            return error.SDLError;
+        }
+    }
 };
 
 pub const SubSystem = packed struct(u32) {
@@ -202,5 +220,17 @@ pub const Window = struct {
 
     pub fn deinit(this: Window) void {
         sdl3.SDL_DestroyWindow(this.ptr);
+    }
+
+    pub fn setSize(this: Window, w: u32, h: u32) !void {
+        if (!sdl3.SDL_SetWindowSize(this.ptr, @intCast(w), @intCast(h))) {
+            return error.SDLError;
+        }
+    }
+
+    pub fn setTitle(this: Window, title: [:0]const u8) !void {
+        if (!sdl3.SDL_SetWindowTitle(this.ptr, title)) {
+            return error.SDLError;
+        }
     }
 };
