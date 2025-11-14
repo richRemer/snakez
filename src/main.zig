@@ -52,9 +52,7 @@ fn run() error{ OutOfMemory, SDLError }!void {
         while (sdl.pollEvent()) |event| {
             switch (event.type) {
                 sdl.sdl3.SDL_EVENT_WINDOW_EXPOSED => {
-                    try renderer.setDrawColor(0, 0, 0, 255);
-                    try renderer.clear();
-                    try renderer.present();
+                    try render(renderer);
                 },
                 sdl.sdl3.SDL_EVENT_KEY_DOWN => {
                     _ = switch (event.key.key) {
@@ -70,4 +68,27 @@ fn run() error{ OutOfMemory, SDLError }!void {
             }
         }
     }
+}
+
+fn render(renderer: sdl.Renderer) !void {
+    const winsz = renderer.getOutputSize();
+    const dim: u8 = @as(u8, @intCast(size)) + 2;
+    const texture = try sdl.Texture.init(renderer, .rgb332, .target, dim, dim);
+    defer texture.deinit();
+
+    try renderer.setDrawColor(0, 0, 0, 255);
+    try renderer.clear();
+    try renderer.setTarget(texture);
+    try renderer.setDrawColor(0, 0, 0, 255);
+    try renderer.clear();
+    try renderer.setDrawColor(0, 255, 0, 255);
+    try renderer.renderRect(.{ .x = 0, .y = 0, .w = dim, .h = dim });
+    try renderer.renderLine(.{ .x = 0, .y = 0 }, .{ .x = dim, .y = dim });
+    try renderer.setTargetDefault();
+    try renderer.renderTexture(
+        texture,
+        .{ .x = 0, .y = 0, .w = dim, .h = dim },
+        .{ .x = 0, .y = 0, .w = @floatFromInt(winsz.w), .h = @floatFromInt(winsz.h) },
+    );
+    try renderer.present();
 }

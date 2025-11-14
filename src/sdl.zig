@@ -1,4 +1,9 @@
 const std = @import("std");
+const geom = @import("./geom.zig");
+const Point = geom.Point;
+const Rect = geom.Rect;
+const Size = geom.Size;
+
 pub const sdl3 = @cImport({
     @cInclude("SDL3/SDL.h");
     @cInclude("SDL3/SDL_main.h");
@@ -140,14 +145,74 @@ pub const Renderer = struct {
         }
     }
 
+    pub fn getCurrentOutputSize(this: Renderer) Size(c_int) {
+        var size: Size(c_int) = .{};
+
+        if (!sdl3.SDL_GetCurrentRenderOutputSize(this.ptr, &size.w, &size.h)) {
+            return .{ .w = 0, .h = 0 };
+        }
+
+        return size;
+    }
+
+    pub fn getOutputSize(this: Renderer) Size(c_int) {
+        var size: Size(c_int) = undefined;
+
+        if (!sdl3.SDL_GetRenderOutputSize(this.ptr, &size.w, &size.h)) {
+            return .{ .w = 0, .h = 0 };
+        }
+
+        return size;
+    }
+
     pub fn present(this: Renderer) !void {
         if (!sdl3.SDL_RenderPresent(this.ptr)) {
             return error.SDLError;
         }
     }
 
+    pub fn renderLine(this: Renderer, p1: Point(f32), p2: Point(f32)) !void {
+        if (!sdl3.SDL_RenderLine(this.ptr, p1.x, p1.y, p2.x, p2.y)) {
+            return error.SDLError;
+        }
+    }
+
+    pub fn renderRect(this: Renderer, rect: Rect(f32)) !void {
+        const sdl_rect: sdl3.SDL_FRect = rect.toSDL();
+
+        if (!sdl3.SDL_RenderRect(this.ptr, &sdl_rect)) {
+            return error.SDLError;
+        }
+    }
+
+    pub fn renderTexture(
+        this: Renderer,
+        texture: Texture,
+        src: Rect(f32),
+        dst: Rect(f32),
+    ) !void {
+        const src_rect: sdl3.SDL_FRect = src.toSDL();
+        const dst_rect: sdl3.SDL_FRect = dst.toSDL();
+
+        if (!sdl3.SDL_RenderTexture(this.ptr, texture.ptr, &src_rect, &dst_rect)) {
+            return error.SDLError;
+        }
+    }
+
     pub fn setDrawColor(this: Renderer, r: u8, g: u8, b: u8, a: u8) !void {
         if (!sdl3.SDL_SetRenderDrawColor(this.ptr, r, g, b, a)) {
+            return error.SDLError;
+        }
+    }
+
+    pub fn setTarget(this: Renderer, texture: Texture) !void {
+        if (!sdl3.SDL_SetRenderTarget(this.ptr, texture.ptr)) {
+            return error.SDLError;
+        }
+    }
+
+    pub fn setTargetDefault(this: Renderer) !void {
+        if (!sdl3.SDL_SetRenderTarget(this.ptr, null)) {
             return error.SDLError;
         }
     }
@@ -166,6 +231,114 @@ pub const SubSystem = packed struct(u32) {
     sensor: bool = false,
     camera: bool = false,
     reserved_15: u15 = 0,
+};
+
+pub const Texture = struct {
+    ptr: *sdl3.SDL_Texture,
+
+    pub const Access = enum(c_int) {
+        static = sdl3.SDL_TEXTUREACCESS_STATIC,
+        streaming = sdl3.SDL_TEXTUREACCESS_STREAMING,
+        target = sdl3.SDL_TEXTUREACCESS_TARGET,
+    };
+
+    pub const PixelFormat = enum(c_uint) {
+        unknown = sdl3.SDL_PIXELFORMAT_UNKNOWN,
+        index1lsb = sdl3.SDL_PIXELFORMAT_INDEX1LSB,
+        index1msb = sdl3.SDL_PIXELFORMAT_INDEX1MSB,
+        index2lsb = sdl3.SDL_PIXELFORMAT_INDEX2LSB,
+        index2msb = sdl3.SDL_PIXELFORMAT_INDEX2MSB,
+        index4lsb = sdl3.SDL_PIXELFORMAT_INDEX4LSB,
+        index4msb = sdl3.SDL_PIXELFORMAT_INDEX4MSB,
+        index8 = sdl3.SDL_PIXELFORMAT_INDEX8,
+        rgb332 = sdl3.SDL_PIXELFORMAT_RGB332,
+        xrgb4444 = sdl3.SDL_PIXELFORMAT_XRGB4444,
+        xbgr4444 = sdl3.SDL_PIXELFORMAT_XBGR4444,
+        xrgb1555 = sdl3.SDL_PIXELFORMAT_XRGB1555,
+        xbgr1555 = sdl3.SDL_PIXELFORMAT_XBGR1555,
+        argb4444 = sdl3.SDL_PIXELFORMAT_ARGB4444,
+        rgba4444 = sdl3.SDL_PIXELFORMAT_RGBA4444,
+        abgr4444 = sdl3.SDL_PIXELFORMAT_ABGR4444,
+        bgra4444 = sdl3.SDL_PIXELFORMAT_BGRA4444,
+        argb1555 = sdl3.SDL_PIXELFORMAT_ARGB1555,
+        rgba5551 = sdl3.SDL_PIXELFORMAT_RGBA5551,
+        abgr1555 = sdl3.SDL_PIXELFORMAT_ABGR1555,
+        bgra5551 = sdl3.SDL_PIXELFORMAT_BGRA5551,
+        rgb565 = sdl3.SDL_PIXELFORMAT_RGB565,
+        bgr565 = sdl3.SDL_PIXELFORMAT_BGR565,
+        rgb24 = sdl3.SDL_PIXELFORMAT_RGB24,
+        bgr24 = sdl3.SDL_PIXELFORMAT_BGR24,
+        xrgb8888 = sdl3.SDL_PIXELFORMAT_XRGB8888,
+        rgbx8888 = sdl3.SDL_PIXELFORMAT_RGBX8888,
+        xbgr8888 = sdl3.SDL_PIXELFORMAT_XBGR8888,
+        bgrx8888 = sdl3.SDL_PIXELFORMAT_BGRX8888,
+        argb8888 = sdl3.SDL_PIXELFORMAT_ARGB8888,
+        rgba8888 = sdl3.SDL_PIXELFORMAT_RGBA8888,
+        abgr8888 = sdl3.SDL_PIXELFORMAT_ABGR8888,
+        bgra8888 = sdl3.SDL_PIXELFORMAT_BGRA8888,
+        xrgb2101010 = sdl3.SDL_PIXELFORMAT_XRGB2101010,
+        xbgr2101010 = sdl3.SDL_PIXELFORMAT_XBGR2101010,
+        argb2101010 = sdl3.SDL_PIXELFORMAT_ARGB2101010,
+        abgr2101010 = sdl3.SDL_PIXELFORMAT_ABGR2101010,
+        rgb48 = sdl3.SDL_PIXELFORMAT_RGB48,
+        bgr48 = sdl3.SDL_PIXELFORMAT_BGR48,
+        rgba64 = sdl3.SDL_PIXELFORMAT_RGBA64,
+        argb64 = sdl3.SDL_PIXELFORMAT_ARGB64,
+        bgra64 = sdl3.SDL_PIXELFORMAT_BGRA64,
+        abgr64 = sdl3.SDL_PIXELFORMAT_ABGR64,
+        rgb48_float = sdl3.SDL_PIXELFORMAT_RGB48_FLOAT,
+        bgr48_float = sdl3.SDL_PIXELFORMAT_BGR48_FLOAT,
+        rgba64_float = sdl3.SDL_PIXELFORMAT_RGBA64_FLOAT,
+        argb64_float = sdl3.SDL_PIXELFORMAT_ARGB64_FLOAT,
+        bgra64_float = sdl3.SDL_PIXELFORMAT_BGRA64_FLOAT,
+        abgr64_float = sdl3.SDL_PIXELFORMAT_ABGR64_FLOAT,
+        rgb96_float = sdl3.SDL_PIXELFORMAT_RGB96_FLOAT,
+        bgr96_float = sdl3.SDL_PIXELFORMAT_BGR96_FLOAT,
+        rgba128_float = sdl3.SDL_PIXELFORMAT_RGBA128_FLOAT,
+        argb128_float = sdl3.SDL_PIXELFORMAT_ARGB128_FLOAT,
+        bgra128_float = sdl3.SDL_PIXELFORMAT_BGRA128_FLOAT,
+        abgr128_float = sdl3.SDL_PIXELFORMAT_ABGR128_FLOAT,
+        yv12 = sdl3.SDL_PIXELFORMAT_YV12,
+        iyuv = sdl3.SDL_PIXELFORMAT_IYUV,
+        yuy2 = sdl3.SDL_PIXELFORMAT_YUY2,
+        uyvy = sdl3.SDL_PIXELFORMAT_UYVY,
+        yvyu = sdl3.SDL_PIXELFORMAT_YVYU,
+        nv12 = sdl3.SDL_PIXELFORMAT_NV12,
+        nv21 = sdl3.SDL_PIXELFORMAT_NV21,
+        p010 = sdl3.SDL_PIXELFORMAT_P010,
+        external_oes = sdl3.SDL_PIXELFORMAT_EXTERNAL_OES,
+        mjpg = sdl3.SDL_PIXELFORMAT_MJPG,
+        // NOTE: remaining are duplicates of more explicit bit layouts above
+        // rgba32 = sdl3.SDL_PIXELFORMAT_RGBA32,
+        // argb32 = sdl3.SDL_PIXELFORMAT_ARGB32,
+        // bgra32 = sdl3.SDL_PIXELFORMAT_BGRA32,
+        // abgr32 = sdl3.SDL_PIXELFORMAT_ABGR32,
+        // rgbx32 = sdl3.SDL_PIXELFORMAT_RGBX32,
+        // xrgb32 = sdl3.SDL_PIXELFORMAT_XRGB32,
+        // bgrx32 = sdl3.SDL_PIXELFORMAT_BGRX32,
+        // xbgr32 = sdl3.SDL_PIXELFORMAT_XBGR32,
+    };
+
+    pub fn init(
+        renderer: Renderer,
+        format: PixelFormat,
+        access: Access,
+        w: c_int,
+        h: c_int,
+    ) error{SDLError}!Texture {
+        const f: c_uint = @intCast(@intFromEnum(format));
+        const a: c_uint = @intCast(@intFromEnum(access));
+
+        if (sdl3.SDL_CreateTexture(renderer.ptr, f, a, w, h)) |texture| {
+            return .{ .ptr = texture };
+        } else {
+            return error.SDLError;
+        }
+    }
+
+    pub fn deinit(this: Texture) void {
+        sdl3.SDL_DestroyTexture(this.ptr);
+    }
 };
 
 pub const Window = struct {
