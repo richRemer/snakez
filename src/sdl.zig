@@ -1,22 +1,22 @@
 const std = @import("std");
 const geom = @import("./geom.zig");
+const mem = std.mem;
 const Point = geom.Point;
 const Rect = geom.Rect;
 const Size = geom.Size;
+const Allocator = mem.Allocator;
 
 pub const sdl3 = @cImport({
     @cInclude("SDL3/SDL.h");
     @cInclude("SDL3/SDL_main.h");
 });
 
-const Allocator = std.mem.Allocator;
-
 pub fn getError() []const u8 {
     const ptr: [*c]const u8 = sdl3.SDL_GetError();
     var slice: []const u8 = &.{};
 
     slice.ptr = ptr;
-    slice.len = std.mem.len(ptr);
+    slice.len = mem.len(ptr);
 
     return slice;
 }
@@ -118,7 +118,7 @@ pub const Gamepad = struct {
         var slice: []const u8 = &.{};
 
         slice.ptr = @ptrCast(ptr);
-        slice.len = std.mem.len(ptr);
+        slice.len = mem.len(ptr);
 
         return slice;
     }
@@ -163,6 +163,12 @@ pub const Renderer = struct {
         }
 
         return size;
+    }
+
+    pub fn point(this: Renderer, pos: Point(f32)) !void {
+        if (!sdl3.SDL_RenderPoint(this.ptr, pos.x, pos.y)) {
+            return error.SDLError;
+        }
     }
 
     pub fn present(this: Renderer) !void {
@@ -381,7 +387,7 @@ pub const Window = struct {
         height: u16,
         flags: Flags,
     ) error{ OutOfMemory, SDLError }!Window {
-        const c_title = try std.mem.Allocator.dupeZ(allocator, u8, title);
+        const c_title = try Allocator.dupeZ(allocator, u8, title);
         defer allocator.free(c_title);
 
         if (sdl3.SDL_CreateWindow(c_title, width, height, @bitCast(flags))) |window| {
