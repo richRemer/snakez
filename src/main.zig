@@ -76,7 +76,7 @@ fn run(game: *Snakez(size)) error{ OutOfMemory, SDLError }!void {
 }
 
 fn render(renderer: sdl.Renderer, game: *Snakez(size)) !void {
-    const winsz = renderer.getOutputSize();
+    const outsz = renderer.getOutputSize();
     const dim: u8 = @as(u8, @intCast(size)) + 2;
     const texture = try sdl.Texture.init(renderer, .rgb332, .target, dim, dim);
     defer texture.deinit();
@@ -93,7 +93,7 @@ fn render(renderer: sdl.Renderer, game: *Snakez(size)) !void {
 
     const field_size = game.fieldSize();
     for (0..field_size) |x| for (0..field_size) |y| {
-        const state = game.stateAt(.{ .x = @intCast(x), .y = @intCast(y) });
+        const state = game.stateAt(.{ @intCast(x), @intCast(y) });
 
         switch (state) {
             .blocked, .snake => try renderer.setDrawColor(0, 255, 0, 255),
@@ -103,7 +103,7 @@ fn render(renderer: sdl.Renderer, game: *Snakez(size)) !void {
 
         switch (state) {
             .empty => {},
-            else => try renderer.point(.{ .x = @floatFromInt(x), .y = @floatFromInt(y) }),
+            else => try renderer.point(.{ @floatFromInt(x), @floatFromInt(y) }),
         }
     };
 
@@ -111,8 +111,8 @@ fn render(renderer: sdl.Renderer, game: *Snakez(size)) !void {
     try renderer.setTargetDefault();
     try renderer.renderTexture(
         texture,
-        .{ .x = 0, .y = 0, .w = dim, .h = dim },
-        .{ .x = 0, .y = 0, .w = @floatFromInt(winsz.w), .h = @floatFromInt(winsz.h) },
+        .{ 0, 0, dim, dim },
+        .{ 0, 0, @floatFromInt(outsz.@"0"), @floatFromInt(outsz.@"1") },
     );
 
     // sync render buffer to screen

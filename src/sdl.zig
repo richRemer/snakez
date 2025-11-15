@@ -1,9 +1,8 @@
 const std = @import("std");
-const geom = @import("./geom.zig");
+const data = @import("data.zig");
 const mem = std.mem;
-const Point = geom.Point;
-const Rect = geom.Rect;
-const Size = geom.Size;
+const Pair = data.Pair;
+const Quad = data.Quad;
 const Allocator = mem.Allocator;
 
 pub const sdl3 = @cImport({
@@ -145,28 +144,28 @@ pub const Renderer = struct {
         }
     }
 
-    pub fn getCurrentOutputSize(this: Renderer) Size(c_int) {
-        var size: Size(c_int) = .{};
+    pub fn getCurrentOutputSize(this: Renderer) Pair(c_int) {
+        var size: Pair(c_int) = undefined;
 
-        if (!sdl3.SDL_GetCurrentRenderOutputSize(this.ptr, &size.w, &size.h)) {
-            return .{ .w = 0, .h = 0 };
+        if (!sdl3.SDL_GetCurrentRenderOutputSize(this.ptr, &size.@"0", &size.@"1")) {
+            return .{ 0, 0 };
         }
 
         return size;
     }
 
-    pub fn getOutputSize(this: Renderer) Size(c_int) {
-        var size: Size(c_int) = undefined;
+    pub fn getOutputSize(this: Renderer) Pair(c_int) {
+        var size: Pair(c_int) = undefined;
 
-        if (!sdl3.SDL_GetRenderOutputSize(this.ptr, &size.w, &size.h)) {
-            return .{ .w = 0, .h = 0 };
+        if (!sdl3.SDL_GetRenderOutputSize(this.ptr, &size.@"0", &size.@"1")) {
+            return .{ 0, 0 };
         }
 
         return size;
     }
 
-    pub fn point(this: Renderer, pos: Point(f32)) !void {
-        if (!sdl3.SDL_RenderPoint(this.ptr, pos.x, pos.y)) {
+    pub fn point(this: Renderer, pos: Pair(f32)) !void {
+        if (!sdl3.SDL_RenderPoint(this.ptr, pos.@"0", pos.@"1")) {
             return error.SDLError;
         }
     }
@@ -177,14 +176,14 @@ pub const Renderer = struct {
         }
     }
 
-    pub fn renderLine(this: Renderer, p1: Point(f32), p2: Point(f32)) !void {
-        if (!sdl3.SDL_RenderLine(this.ptr, p1.x, p1.y, p2.x, p2.y)) {
+    pub fn renderLine(this: Renderer, p1: Pair(f32), p2: Pair(f32)) !void {
+        if (!sdl3.SDL_RenderLine(this.ptr, p1.@"0", p1.@"1", p2.@"0", p2.@"1")) {
             return error.SDLError;
         }
     }
 
-    pub fn renderRect(this: Renderer, rect: Rect(f32)) !void {
-        const sdl_rect: sdl3.SDL_FRect = rect.toSDL();
+    pub fn renderRect(this: Renderer, rect: Quad(f32)) !void {
+        const sdl_rect = frect(rect);
 
         if (!sdl3.SDL_RenderRect(this.ptr, &sdl_rect)) {
             return error.SDLError;
@@ -194,11 +193,11 @@ pub const Renderer = struct {
     pub fn renderTexture(
         this: Renderer,
         texture: Texture,
-        src: Rect(f32),
-        dst: Rect(f32),
+        src: Quad(f32),
+        dst: Quad(f32),
     ) !void {
-        const src_rect: sdl3.SDL_FRect = src.toSDL();
-        const dst_rect: sdl3.SDL_FRect = dst.toSDL();
+        const src_rect = frect(src);
+        const dst_rect = frect(dst);
 
         if (!sdl3.SDL_RenderTexture(this.ptr, texture.ptr, &src_rect, &dst_rect)) {
             return error.SDLError;
@@ -413,3 +412,12 @@ pub const Window = struct {
         }
     }
 };
+
+fn frect(qrect: Quad(f32)) sdl3.SDL_FRect {
+    return .{
+        .x = qrect.@"0",
+        .y = qrect.@"1",
+        .w = qrect.@"2",
+        .h = qrect.@"3",
+    };
+}

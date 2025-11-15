@@ -1,4 +1,6 @@
 const std = @import("std");
+const data = @import("data.zig");
+const Pair = data.Pair;
 
 pub const size_t = u6;
 pub const size_bias: usize = 11; // size 0 is 11x11 field
@@ -34,7 +36,7 @@ pub fn Snakez(comptime size: size_t) type {
             for (0..sz) |y| for (0..sz) |x| {
                 const edge = x == 0 or x == sz - 1 or y == 0 or y == sz - 1;
                 const state: FieldState = if (edge) .blocked else .empty;
-                snakez.stateSet(.{ .x = @intCast(x), .y = @intCast(y) }, state);
+                snakez.stateSet(.{ @intCast(x), @intCast(y) }, state);
             };
 
             return snakez;
@@ -45,17 +47,17 @@ pub fn Snakez(comptime size: size_t) type {
             return sz;
         }
 
-        pub fn stateAt(this: *@This(), pos: Position) FieldState {
-            if (pos.x < sz and pos.y < sz) {
-                return this.field[pos.y][pos.x];
+        pub fn stateAt(this: *@This(), pos: Pair(u8)) FieldState {
+            if (pos.@"0" < sz and pos.@"1" < sz) {
+                return this.field[pos.@"1"][pos.@"0"];
             } else {
                 return .empty;
             }
         }
 
-        fn stateSet(this: *@This(), pos: Position, state: FieldState) void {
-            if (pos.x < sz and pos.y < sz) {
-                this.field[pos.y][pos.x] = state;
+        fn stateSet(this: *@This(), pos: Pair(u8), state: FieldState) void {
+            if (pos.@"0" < sz and pos.@"1" < sz) {
+                this.field[pos.@"1"][pos.@"0"] = state;
             } else {
                 // ignore degenerate case
             }
@@ -79,7 +81,7 @@ pub const Snake = struct {
     buffer: []u8,
     head: *Segment,
     len: usize,
-    pos: Position,
+    pos: Pair(u8),
     state: State,
 
     pub const Segment = struct {
@@ -114,7 +116,7 @@ pub const Snake = struct {
             .buffer = buffer,
             .head = @ptrCast(@alignCast(buffer.ptr)),
             .len = if (buffer.len >= @sizeOf(Segment)) 1 else 0,
-            .pos = .{ .x = 4, .y = 4 },
+            .pos = .{ 4, 4 },
             .state = .alive,
         };
     }
@@ -131,7 +133,7 @@ pub const Snake = struct {
         this.state = .dead;
     }
 
-    pub fn slither(this: *Snake) ?Position {
+    pub fn slither(this: *Snake) ?Pair(u8) {
         var pos = this.pos; // position of current segment
         var found = 0; // number of segments found
         var lead_dir: Direction = this.head.dir; // direction to follow leader
@@ -142,9 +144,9 @@ pub const Snake = struct {
             const dir = segment.dir;
 
             if (segment == this.head) {
-                this.pos = pos.adjacent(dir);
+                this.pos = adjacent(pos, dir);
             } else {
-                pos = pos.adjacent(dir.opposite());
+                pos = adjacent(pos, dir.opposite());
                 segment.dir = lead_dir; // follow the leader
             }
 
@@ -190,30 +192,21 @@ pub const Direction = enum {
         };
     }
 
-    pub fn vector(this: Direction) struct { x: i2, y: i2 } {
+    pub fn vector(this: Direction) Pair(i2) {
         return switch (this) {
-            .North => .{ .x = 0, .y = -1 },
-            .East => .{ .x = 1, .y = 0 },
-            .South => .{ .x = 0, .y = 1 },
-            .West => .{ .x = -1, .y = 0 },
+            .North => .{ 0, -1 },
+            .East => .{ 1, 0 },
+            .South => .{ 0, 1 },
+            .West => .{ -1, 0 },
         };
     }
 };
 
-pub const Position = struct {
-    x: u8,
-    y: u8,
+fn adjacent(pos: Pair(u8), dir: Direction) Pair(u8) {
+    const vector = dir.vector();
 
-    pub fn eql(this: Position, pos: Position) bool {
-        return std.meta.eql(this, pos);
-    }
-
-    pub fn adjacent(this: Position, dir: Direction) Position {
-        const vector = dir.vector();
-
-        return .{
-            .x = this.x +| vector.x,
-            .y = this.y +| vector.y,
-        };
-    }
-};
+    return .{
+        pos.@"0" +| vector.@"0",
+        pos.@"1" +| vector.@"1",
+    };
+}
