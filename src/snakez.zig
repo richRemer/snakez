@@ -34,10 +34,12 @@ pub fn Snakez(comptime size: size_t) type {
 
             // initialize empty field with border walls
             for (0..sz) |y| for (0..sz) |x| {
-                const edge = x == 0 or x == sz - 1 or y == 0 or y == sz - 1;
+                const edge = x == 0 or x == sz - size_bias + 1 or y == 0 or y == sz - size_bias + 1;
                 const state: FieldState = if (edge) .blocked else .empty;
                 snakez.stateSet(.{ @intCast(x), @intCast(y) }, state);
             };
+
+            snakez.stateSet(snakez.snake.pos, .snake);
 
             return snakez;
         }
