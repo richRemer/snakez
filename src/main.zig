@@ -61,10 +61,10 @@ fn run(game: *Snakez(size)) error{ OutOfMemory, SDLError }!void {
                 },
                 sdl.sdl3.SDL_EVENT_KEY_DOWN => {
                     _ = switch (event.key.key) {
-                        sdl.sdl3.SDLK_DOWN => try window.setTitle("down"),
-                        sdl.sdl3.SDLK_LEFT => try window.setTitle("left"),
-                        sdl.sdl3.SDLK_RIGHT => try window.setTitle("right"),
-                        sdl.sdl3.SDLK_UP => try window.setTitle("up"),
+                        sdl.sdl3.SDLK_DOWN => game.snake.turn(.South),
+                        sdl.sdl3.SDLK_LEFT => game.snake.turn(.West),
+                        sdl.sdl3.SDLK_RIGHT => game.snake.turn(.East),
+                        sdl.sdl3.SDLK_UP => game.snake.turn(.North),
                         else => false,
                     };
                 },
