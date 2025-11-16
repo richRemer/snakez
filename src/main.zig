@@ -9,8 +9,11 @@ const version = "0.0";
 const size = 63;
 const scale = 10;
 
-pub fn main() void {
-    var game: Snakez(size) = Snakez(size).init();
+pub fn main() !void {
+    const len = Snakez.bufferSize(size);
+    const buffer = try std.heap.smp_allocator.alloc(u8, len);
+
+    var game = Snakez.init(size, buffer);
     var status: u8 = 0;
 
     run(&game) catch |err| switch (err) {
@@ -27,8 +30,8 @@ pub fn main() void {
     std.process.exit(status);
 }
 
-fn run(game: *Snakez(size)) error{ OutOfMemory, SDLError }!void {
-    const winsz: u32 = @intCast(game.fieldSize() * scale);
+fn run(game: *Snakez) error{ OutOfMemory, SDLError }!void {
+    const winsz: u32 = @intCast(game.len * scale);
     var done = false;
 
     defer sdl.quit();
@@ -75,9 +78,9 @@ fn run(game: *Snakez(size)) error{ OutOfMemory, SDLError }!void {
     }
 }
 
-fn render(renderer: sdl.Renderer, game: *Snakez(size)) !void {
+fn render(renderer: sdl.Renderer, game: *Snakez) !void {
     const outsz = renderer.getOutputSize();
-    const dim: u8 = @as(u8, @intCast(size)) + 2;
+    const dim: u8 = @intCast(game.len);
     const texture = try sdl.Texture.init(renderer, .rgb332, .target, dim, dim);
     defer texture.deinit();
 
@@ -91,17 +94,16 @@ fn render(renderer: sdl.Renderer, game: *Snakez(size)) !void {
     try renderer.clear();
     try renderer.setDrawColor(0, 255, 0, 255);
 
-    const field_size = game.fieldSize();
-    for (0..field_size) |x| for (0..field_size) |y| {
-        const state = game.stateAt(.{ @intCast(x), @intCast(y) });
+    for (0..game.len) |x| for (0..game.len) |y| {
+        const state = game.field.tileAt(.{ @intCast(x), @intCast(y) }).?;
 
-        switch (state) {
+        switch (state.*) {
             .blocked, .snake => try renderer.setDrawColor(0, 255, 0, 255),
             .food => try renderer.setDrawColor(255, 0, 0, 255),
             else => {},
         }
 
-        switch (state) {
+        switch (state.*) {
             .empty => {},
             else => try renderer.point(.{ @floatFromInt(x), @floatFromInt(y) }),
         }
@@ -111,7 +113,7 @@ fn render(renderer: sdl.Renderer, game: *Snakez(size)) !void {
     try renderer.setTargetDefault();
     try renderer.renderTexture(
         texture,
-        .{ 0, 0, dim, dim },
+        .{ 0, 0, @floatFromInt(dim), @floatFromInt(dim) },
         .{ 0, 0, @floatFromInt(outsz.@"0"), @floatFromInt(outsz.@"1") },
     );
 

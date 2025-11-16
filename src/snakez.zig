@@ -1,190 +1,32 @@
 const std = @import("std");
 const data = @import("data.zig");
+const math = std.math;
 const Pair = data.Pair;
 
+/// Integer type describing game size.
 pub const size_t = u6;
+/// Bias added to game size to get field length.
 pub const size_bias: usize = 11; // size 0 is 11x11 field
-pub const min_field_size: usize = size_bias;
-pub const max_field_size: usize = size_bias + std.math.maxInt(size_t);
 
-pub fn Snakez(comptime size: size_t) type {
-    const sz = size + size_bias;
-    const bufsz = sz * sz * @sizeOf(Snake.Segment);
-
-    return struct {
-        // TODO: force alignment more explicitly; for now, rely on Snakez
-        // TODO: alignment to be acceptable and place buffer at start
-        buffer: [bufsz]u8,
-        field: [sz][sz]FieldState,
-        snake: Snake,
-        food_value: u8,
-
-        pub const FieldState = enum(u2) {
-            empty = 0,
-            blocked = 1,
-            snake = 2,
-            food = 3,
-        };
-
-        pub fn init() @This() {
-            var snakez: @This() = undefined;
-
-            snakez.food_value = 1;
-            snakez.snake = Snake.init(&snakez.buffer);
-
-            // initialize empty field with border walls
-            for (0..sz) |y| for (0..sz) |x| {
-                const edge = x == 0 or x == sz - size_bias + 1 or y == 0 or y == sz - size_bias + 1;
-                const state: FieldState = if (edge) .blocked else .empty;
-                snakez.stateSet(.{ @intCast(x), @intCast(y) }, state);
-            };
-
-            snakez.stateSet(snakez.snake.pos, .snake);
-
-            return snakez;
-        }
-
-        pub fn fieldSize(this: *@This()) usize {
-            _ = this;
-            return sz;
-        }
-
-        pub fn stateAt(this: *@This(), pos: Pair(u8)) FieldState {
-            if (pos.@"0" < sz and pos.@"1" < sz) {
-                return this.field[pos.@"1"][pos.@"0"];
-            } else {
-                return .empty;
-            }
-        }
-
-        fn stateSet(this: *@This(), pos: Pair(u8), state: FieldState) void {
-            if (pos.@"0" < sz and pos.@"1" < sz) {
-                this.field[pos.@"1"][pos.@"0"] = state;
-            } else {
-                // ignore degenerate case
-            }
-        }
-
-        fn tick(this: *@This()) void {
-            if (this.snake.slither()) |clear_pos| {
-                this.stateSet(clear_pos, .empty);
-            }
-
-            switch (this.stateAt(this.snake.pos)) {
-                .empty => {},
-                .blocked, .snake => this.snake.kill(),
-                .food => {},
-            }
-        }
-    };
-}
-
-pub const Snake = struct {
-    buffer: []u8,
-    head: *Segment,
-    len: usize,
-    pos: Pair(u8),
-    state: State,
-
-    pub const Segment = struct {
-        next: ?*Segment,
-        dir: Direction,
-
-        pub const Iterator = struct {
-            current: ?*Segment,
-
-            pub fn init(start: ?*Segment) Iterator {
-                return .{ .current = start };
-            }
-
-            pub fn next(this: *Iterator) ?*Segment {
-                if (this.current) |segment| {
-                    this.current = segment.next;
-                    return segment;
-                } else {
-                    return null;
-                }
-            }
-        };
-    };
-
-    pub const State = enum(u1) {
-        alive = 0,
-        dead = 1,
-    };
-
-    pub fn init(buffer: []u8) Snake {
-        return .{
-            .buffer = buffer,
-            .head = @ptrCast(@alignCast(buffer.ptr)),
-            .len = if (buffer.len >= @sizeOf(Segment)) 1 else 0,
-            .pos = .{ 4, 4 },
-            .state = .alive,
-        };
-    }
-
-    pub fn capacity(this: Snake) usize {
-        return this.buffer.len / @sizeOf(Segment);
-    }
-
-    pub fn iterate(this: Snake) Segment.Iterator {
-        return Segment.Iterator.init(this.head);
-    }
-
-    pub fn kill(this: *Snake) void {
-        this.state = .dead;
-    }
-
-    pub fn slither(this: *Snake) ?Pair(u8) {
-        var pos = this.pos; // position of current segment
-        var found = 0; // number of segments found
-        var lead_dir: Direction = this.head.dir; // direction to follow leader
-        var it = this.iterate();
-
-        // TODO: check if new position ran into obstacle
-        while (it.next()) |segment| {
-            const dir = segment.dir;
-
-            if (segment == this.head) {
-                this.pos = adjacent(pos, dir);
-            } else {
-                pos = adjacent(pos, dir.opposite());
-                segment.dir = lead_dir; // follow the leader
-            }
-
-            lead_dir = dir;
-            found += 1;
-        }
-
-        if (found < this.len) {
-            const ptr: [*]Segment = @ptrCast(this.buffer.ptr);
-            const len = found + 1;
-            const slice = ptr[0..len];
-
-            // TODO: verify offsets in range etc.
-            slice[len - 1] = .{ .next = null, .dir = lead_dir };
-            slice[len - 2].next = &slice[len - 1];
-        }
-    }
-
-    pub fn turn(this: *Snake, dir: Direction) void {
-        // ignore turn which directs back into previous segment
-        if (this.head.next) |next| {
-            if (next.dir == dir.opposite()) {
-                return;
-            }
-        }
-
-        this.head.dir = dir;
-    }
-};
-
-pub const Direction = enum {
+/// Direction of facing and movement.  North is the top of the screen, East is
+/// the right, etc.
+const Direction = enum {
     North,
     East,
     South,
     West,
 
+    /// Calculate position adjacent to another in this direction.
+    pub fn adjacentOf(this: Direction, pos: Pair(u8)) Pair(u8) {
+        const offset = this.vector();
+
+        return .{
+            pos.@"0" +| offset.@"0",
+            pos.@"1" +| offset.@"1",
+        };
+    }
+
+    /// Get the opposite direction.
     pub fn opposite(this: Direction) Direction {
         return switch (this) {
             .North => .South,
@@ -194,6 +36,7 @@ pub const Direction = enum {
         };
     }
 
+    /// Return a cardinal unit vector for this direction.
     pub fn vector(this: Direction) Pair(i2) {
         return switch (this) {
             .North => .{ 0, -1 },
@@ -204,11 +47,201 @@ pub const Direction = enum {
     }
 };
 
-fn adjacent(pos: Pair(u8), dir: Direction) Pair(u8) {
-    const vector = dir.vector();
+/// Field of tiles where game takes place.
+const Field = struct {
+    tiles: []Tile,
+    len: usize,
 
-    return .{
-        pos.@"0" +| vector.@"0",
-        pos.@"1" +| vector.@"1",
+    /// Pass in tiles slice that will be managed by this field.
+    pub fn init(tiles: []Tile) Field {
+        if (tiles.len == 0) {
+            @panic("empty Field");
+        }
+
+        for (tiles) |*tile| {
+            tile.* = .empty;
+        }
+
+        return .{
+            .tiles = tiles,
+            .len = math.sqrt(tiles.len),
+        };
+    }
+
+    /// Return tile at the specified location.
+    pub fn tileAt(this: *Field, pos: Pair(u8)) ?*Tile {
+        if (pos.@"0" < this.len and pos.@"1" < this.len) {
+            return &this.tiles[pos.@"0" + pos.@"1" * this.len];
+        } else {
+            return null;
+        }
+    }
+
+    // Return location of the specified tile.
+    pub fn locationOf(this: *Field, tile: *Tile) Pair(u8) {
+        const start_addr = @intFromPtr(&this.tiles[0]);
+        const max_addr = start_addr + @sizeOf(Tile) * (this.tiles.len - 1);
+        const tile_addr = @intFromPtr(tile);
+
+        if (tile_addr < start_addr or tile_addr > max_addr) {
+            return .{ 255, 255 };
+        }
+
+        // TODO: verify behavior with unaligned pointer arg
+        const n = @divExact(tile_addr - start_addr, @sizeOf(Tile));
+        const y: u8 = @divFloor(n, this.len);
+        const x: u8 = @mod(n, this.len);
+
+        return .{ x, y };
+    }
+};
+
+/// Player snake.
+const Snake = struct {
+    /// Location of tile where snake head is found.
+    head: *Tile,
+    /// Direction the snake is facing.
+    dir: Direction,
+    /// Living state of the snake.
+    state: State,
+    /// Actual length of snake.
+    len: usize,
+    /// Target size of snake.
+    sz: usize,
+
+    /// Snake living status.
+    pub const State = enum {
+        alive,
+        dead,
     };
-}
+
+    /// Set location of head and direction snake is facing.
+    pub fn init(head: *Tile, dir: Direction) Snake {
+        return .{
+            .head = head,
+            .dir = dir,
+            .state = .alive,
+            .len = 1,
+            .sz = 1,
+        };
+    }
+
+    /// Grow the snake into the field tile it is facing.  This will extend the
+    /// head of the snake forward and may lead to the snake's death.  If the
+    /// snake enters a tile with food, it will eat the food.
+    pub fn grow(this: *Snake, field: *Field) void {
+        const old_pos = field.locationOf(this.head);
+        const new_pos = this.dir.adjacentOf(old_pos);
+
+        if (field.tileAt(new_pos)) |tile| switch (tile) {
+            .empty => {
+                tile.* = .{ .snake = this.head }; // point tile at old head
+                this.head = tile; // snake head now in new tile
+                this.len += 1; // snake now longer
+            },
+            .food => |value| this.sz += value,
+            .blocked, .snake => this.kill(),
+        } else unreachable;
+    }
+
+    /// Set snake living status to dead.
+    pub fn kill(this: *Snake) void {
+        this.state = .dead;
+    }
+
+    /// Remove final tail segment of the snake.
+    pub fn shrink(this: *Snake) void {
+        var tile = this.head;
+
+        while (tile.snake == .snake) {
+            tile = tile.snake;
+        }
+
+        if (tile != this.head) {
+            tile.* = .empty;
+        }
+    }
+
+    /// Turn the snake in the specified direction.
+    pub fn turn(this: *Snake, dir: Direction) void {
+        // TODO: figure out how to not go backwards
+        this.dir = dir;
+    }
+};
+
+/// Snakez game state.
+pub const Snakez = struct {
+    /// Caller-provided buffer where game state is kept.
+    buffer: []u8,
+    /// Game field where play takes place.
+    field: Field,
+    /// Player snake.
+    snake: Snake,
+    /// Value of next food pellet.
+    food_value: u8,
+    /// Length of field.
+    len: usize,
+
+    /// Calculate the size of the buffer needed for a game size.
+    pub fn bufferSize(game_size: size_t) usize {
+        return Snakez.tileCount(game_size) * @sizeOf(Tile);
+    }
+
+    /// Calculate the number of tiles for a game size.
+    pub fn tileCount(game_size: size_t) usize {
+        const len: usize = game_size + size_bias;
+        return len * len;
+    }
+
+    /// Initialize with a buffer at least Snakez.bufferSize() bytes in length.
+    pub fn init(game_size: size_t, buffer: []u8) Snakez {
+        if (buffer.len < Snakez.bufferSize(game_size)) {
+            @panic("buffer for Snakez game too small");
+        }
+
+        const len = game_size + size_bias;
+        const num_tiles = Snakez.tileCount(game_size);
+        const tiles: [*]Tile = @ptrCast(@alignCast(&buffer[0]));
+        var field = Field.init(tiles[0..num_tiles]);
+
+        const snake = Snake.init(field.tileAt(.{ 4, 4 }).?, .East);
+
+        for (0..len) |n| {
+            field.tileAt(.{ 0, @intCast(n) }).?.* = .blocked;
+            field.tileAt(.{ @intCast(n), 0 }).?.* = .blocked;
+            field.tileAt(.{ @intCast(len - 1), @intCast(n) }).?.* = .blocked;
+            field.tileAt(.{ @intCast(n), @intCast(len - 1) }).?.* = .blocked;
+        }
+
+        return .{
+            .buffer = buffer,
+            .field = field,
+            .snake = snake,
+            .food_value = 1,
+            .len = game_size + size_bias,
+        };
+    }
+
+    /// Move the game forward one tick.
+    pub fn tick(this: *Snakez) void {
+        if (this.snake.state == .alive) {
+            if (this.snake.len >= this.snake.sz) {
+                this.snake.shrink();
+            }
+
+            this.snake.grow(this.field);
+        }
+    }
+};
+
+/// Tile state.
+const Tile = union(enum) {
+    /// Tile is empty.
+    empty: void,
+    /// Tile is blocked.
+    blocked: void,
+    /// Tile contains part of a snake which trails into another tile.
+    snake: *Tile,
+    /// Tile contains food.
+    food: u8,
+};
