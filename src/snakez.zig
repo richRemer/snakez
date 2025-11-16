@@ -153,8 +153,8 @@ const Snake = struct {
     pub fn shrink(this: *Snake) void {
         var tile = this.head;
 
-        while (tile.snake == .snake) {
-            tile = tile.snake;
+        while (tile == .snake and tile.snake != null) {
+            tile = tile.snake.?;
         }
 
         if (tile != this.head) {
@@ -204,7 +204,10 @@ pub const Snakez = struct {
         const tiles: [*]Tile = @ptrCast(@alignCast(&buffer[0]));
         var field = Field.init(tiles[0..num_tiles]);
 
-        const snake = Snake.init(field.tileAt(.{ 4, 4 }).?, .East);
+        const snake = if (field.tileAt(.{ 4, 4 })) |tile| blk: {
+            tile.* = .{ .snake = null };
+            break :blk Snake.init(tile, .East);
+        } else unreachable;
 
         for (0..len) |n| {
             field.tileAt(.{ 0, @intCast(n) }).?.* = .blocked;
@@ -241,7 +244,7 @@ const Tile = union(enum) {
     /// Tile is blocked.
     blocked: void,
     /// Tile contains part of a snake which trails into another tile.
-    snake: *Tile,
+    snake: ?*Tile,
     /// Tile contains food.
     food: u8,
 };
