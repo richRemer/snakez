@@ -94,27 +94,27 @@ fn render(renderer: sdl.Renderer, game: *Snakez) !void {
     defer texture.deinit();
 
     // clear window
-    try renderer.setDrawColor(0, 0, 0, 255);
+    try renderer.setDrawColor(.{ .r = 0, .g = 0, .b = 0, .a = 255 });
     try renderer.clear();
 
     // draw off-screen texture of game map
     try renderer.setTarget(texture);
-    try renderer.setDrawColor(0, 0, 0, 255);
+    try renderer.setDrawColor(.{ .r = 0, .g = 0, .b = 0, .a = 255 });
     try renderer.clear();
-    try renderer.setDrawColor(0, 255, 0, 255);
+    try renderer.setDrawColor(.{ .r = 0, .g = 255, .b = 0, .a = 255 });
 
     for (0..game.len) |x| for (0..game.len) |y| {
-        const state = game.field.tileAt(.{ @intCast(x), @intCast(y) }).?;
+        const state = game.field.tileAt(.{ .x = @intCast(x), .y = @intCast(y) }).?;
 
         switch (state.*) {
-            .blocked, .snake => try renderer.setDrawColor(0, 255, 0, 255),
-            .food => try renderer.setDrawColor(255, 0, 0, 255),
+            .blocked, .snake => try renderer.setDrawColor(.{ .r = 0, .g = 255, .b = 0, .a = 255 }),
+            .food => try renderer.setDrawColor(.{ .r = 255, .g = 0, .b = 0, .a = 255 }),
             else => {},
         }
 
         switch (state.*) {
             .empty => {},
-            else => try renderer.point(.{ @floatFromInt(x), @floatFromInt(y) }),
+            else => try renderer.point(.{ .x = @floatFromInt(x), .y = @floatFromInt(y) }),
         }
     };
 
@@ -122,8 +122,8 @@ fn render(renderer: sdl.Renderer, game: *Snakez) !void {
     try renderer.setTargetDefault();
     try renderer.renderTexture(
         texture,
-        .{ 0, 0, @floatFromInt(dim), @floatFromInt(dim) },
-        .{ 0, 0, @floatFromInt(outsz.@"0"), @floatFromInt(outsz.@"1") },
+        .{ .x = 0, .y = 0, .w = @floatFromInt(dim), .h = @floatFromInt(dim) },
+        .{ .x = 0, .y = 0, .w = @floatFromInt(outsz.w), .h = @floatFromInt(outsz.h) },
     );
 
     // sync render buffer to screen

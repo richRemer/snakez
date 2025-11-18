@@ -1,7 +1,7 @@
 const std = @import("std");
 const data = @import("data.zig");
 const math = std.math;
-const Pair = data.Pair;
+const Coord = data.Coord;
 
 /// Integer type describing game size.
 pub const size_t = u6;
@@ -17,14 +17,12 @@ const Direction = enum {
     West,
 
     /// Calculate position adjacent to another in this direction.
-    pub fn adjacentOf(this: Direction, pos: Pair(u8)) Pair(u8) {
+    pub fn adjacentOf(this: Direction, pos: Coord(u8)) Coord(u8) {
         const offset = this.vector();
 
         return .{
-            @max(0, @as(i9, @intCast(pos.@"0")) +| offset.@"0"),
-            @max(0, @as(i9, @intCast(pos.@"1")) +| offset.@"1"),
-            // pos.@"0" +| offset.@"0",
-            // pos.@"1" +| offset.@"1",
+            .x = @max(0, @as(i9, @intCast(pos.x)) +| offset.x),
+            .y = @max(0, @as(i9, @intCast(pos.y)) +| offset.y),
         };
     }
 
@@ -39,12 +37,12 @@ const Direction = enum {
     }
 
     /// Return a cardinal unit vector for this direction.
-    pub fn vector(this: Direction) Pair(i2) {
+    pub fn vector(this: Direction) Coord(i8) {
         return switch (this) {
-            .North => .{ 0, -1 },
-            .East => .{ 1, 0 },
-            .South => .{ 0, 1 },
-            .West => .{ -1, 0 },
+            .North => .{ .x = 0, .y = -1 },
+            .East => .{ .x = 1, .y = 0 },
+            .South => .{ .x = 0, .y = 1 },
+            .West => .{ .x = -1, .y = 0 },
         };
     }
 };
@@ -71,22 +69,22 @@ const Field = struct {
     }
 
     /// Return tile at the specified location.
-    pub fn tileAt(this: *Field, pos: Pair(u8)) ?*Tile {
-        if (pos.@"0" < this.len and pos.@"1" < this.len) {
-            return &this.tiles[pos.@"0" + pos.@"1" * this.len];
+    pub fn tileAt(this: *Field, pos: Coord(u8)) ?*Tile {
+        if (pos.x < this.len and pos.y < this.len) {
+            return &this.tiles[pos.x + pos.y * this.len];
         } else {
             return null;
         }
     }
 
     // Return location of the specified tile.
-    pub fn locationOf(this: *Field, tile: *Tile) Pair(u8) {
+    pub fn locationOf(this: *Field, tile: *Tile) Coord(u8) {
         const start_addr = @intFromPtr(&this.tiles[0]);
         const max_addr = start_addr + @sizeOf(Tile) * (this.tiles.len - 1);
         const tile_addr = @intFromPtr(tile);
 
         if (tile_addr < start_addr or tile_addr > max_addr) {
-            return .{ 255, 255 };
+            return .{ .x = 255, .y = 255 };
         }
 
         // TODO: verify behavior with unaligned pointer arg
@@ -94,7 +92,7 @@ const Field = struct {
         const y: u8 = @intCast(@divFloor(n, this.len));
         const x: u8 = @intCast(@mod(n, this.len));
 
-        return .{ x, y };
+        return .{ .x = x, .y = y };
     }
 };
 
@@ -236,16 +234,16 @@ pub const Snakez = struct {
         const tiles: [*]Tile = @ptrCast(@alignCast(&buffer[0]));
         var field = Field.init(tiles[0..num_tiles]);
 
-        const snake = if (field.tileAt(.{ 4, 4 })) |tile| blk: {
+        const snake = if (field.tileAt(.{ .x = 4, .y = 4 })) |tile| blk: {
             tile.* = .{ .snake = null };
             break :blk Snake.init(tile, .East);
         } else unreachable;
 
         for (0..len) |n| {
-            field.tileAt(.{ 0, @intCast(n) }).?.* = .blocked;
-            field.tileAt(.{ @intCast(n), 0 }).?.* = .blocked;
-            field.tileAt(.{ @intCast(len - 1), @intCast(n) }).?.* = .blocked;
-            field.tileAt(.{ @intCast(n), @intCast(len - 1) }).?.* = .blocked;
+            field.tileAt(.{ .x = 0, .y = @intCast(n) }).?.* = .blocked;
+            field.tileAt(.{ .x = @intCast(n), .y = 0 }).?.* = .blocked;
+            field.tileAt(.{ .x = @intCast(len - 1), .y = @intCast(n) }).?.* = .blocked;
+            field.tileAt(.{ .x = @intCast(n), .y = @intCast(len - 1) }).?.* = .blocked;
         }
 
         return .{

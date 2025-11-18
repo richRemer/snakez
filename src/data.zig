@@ -1,17 +1,35 @@
-pub fn Pair(T: type) type {
+pub fn Color(T: type) type {
     switch (@typeInfo(T)) {
         .int, .float => {},
-        else => @compileError("Pair is for numeric types"),
+        else => @compileError("Color is for numeric types"),
     }
 
-    return struct { T, T };
+    return extern struct { r: T, g: T, b: T, a: T };
 }
 
-pub fn Quad(T: type) type {
+pub fn Coord(T: type) type {
     switch (@typeInfo(T)) {
         .int, .float => {},
-        else => @compileError("Quad is for numeric types"),
+        else => @compileError("Pos is for numeric types"),
     }
 
-    return struct { T, T, T, T };
+    return extern struct { x: T, y: T };
+}
+
+pub fn Size(T: type) type {
+    switch (@typeInfo(T)) {
+        .int, .float => {},
+        else => @compileError("Size is for numeric types"),
+    }
+
+    return extern struct { w: T, h: T };
+}
+
+pub fn Rect(T: type) type {
+    switch (@typeInfo(T)) {
+        .int, .float => {},
+        else => @compileError("Rect is for numeric types"),
+    }
+
+    return extern struct { x: T, y: T, w: T, h: T };
 }
