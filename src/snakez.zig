@@ -21,8 +21,10 @@ const Direction = enum {
         const offset = this.vector();
 
         return .{
-            pos.@"0" +| offset.@"0",
-            pos.@"1" +| offset.@"1",
+            @max(0, @as(i9, @intCast(pos.@"0")) +| offset.@"0"),
+            @max(0, @as(i9, @intCast(pos.@"1")) +| offset.@"1"),
+            // pos.@"0" +| offset.@"0",
+            // pos.@"1" +| offset.@"1",
         };
     }
 
@@ -89,8 +91,8 @@ const Field = struct {
 
         // TODO: verify behavior with unaligned pointer arg
         const n = @divExact(tile_addr - start_addr, @sizeOf(Tile));
-        const y: u8 = @divFloor(n, this.len);
-        const x: u8 = @mod(n, this.len);
+        const y: u8 = @intCast(@divFloor(n, this.len));
+        const x: u8 = @intCast(@mod(n, this.len));
 
         return .{ x, y };
     }
@@ -109,6 +111,30 @@ const Snake = struct {
     /// Target size of snake.
     sz: usize,
 
+    /// Snake segment iterator.
+    pub const Iterator = struct {
+        curr: ?*Tile,
+
+        /// Begin iterating from tile.
+        pub fn init(head: *Tile) Iterator {
+            return .{ .curr = head };
+        }
+
+        /// Get the next result.
+        pub fn next(this: *Iterator) ?*Tile {
+            return if (this.curr) |tile| switch (tile.*) {
+                .snake => |next_tile| blk: {
+                    this.curr = next_tile;
+                    break :blk tile;
+                },
+                else => blk: {
+                    this.curr = null;
+                    break :blk null;
+                },
+            } else null;
+        }
+    };
+
     /// Snake living status.
     pub const State = enum {
         alive,
@@ -126,6 +152,11 @@ const Snake = struct {
         };
     }
 
+    /// Iterate over snake segments.
+    pub fn iterate(this: *Snake) Iterator {
+        return Iterator.init(this.head);
+    }
+
     /// Grow the snake into the field tile it is facing.  This will extend the
     /// head of the snake forward and may lead to the snake's death.  If the
     /// snake enters a tile with food, it will eat the food.
@@ -133,7 +164,7 @@ const Snake = struct {
         const old_pos = field.locationOf(this.head);
         const new_pos = this.dir.adjacentOf(old_pos);
 
-        if (field.tileAt(new_pos)) |tile| switch (tile) {
+        if (field.tileAt(new_pos)) |tile| switch (tile.*) {
             .empty => {
                 tile.* = .{ .snake = this.head }; // point tile at old head
                 this.head = tile; // snake head now in new tile
@@ -151,14 +182,15 @@ const Snake = struct {
 
     /// Remove final tail segment of the snake.
     pub fn shrink(this: *Snake) void {
-        var tile = this.head;
+        var tail = this.head;
+        var it = this.iterate();
 
-        while (tile == .snake and tile.snake != null) {
-            tile = tile.snake.?;
+        while (it.next()) |tile| {
+            tail = tile;
         }
 
-        if (tile != this.head) {
-            tile.* = .empty;
+        if (tail != this.head) {
+            tail.* = .empty;
         }
     }
 
@@ -232,7 +264,7 @@ pub const Snakez = struct {
                 this.snake.shrink();
             }
 
-            this.snake.grow(this.field);
+            this.snake.grow(&this.field);
         }
     }
 };

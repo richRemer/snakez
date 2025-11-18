@@ -1,6 +1,7 @@
 const std = @import("std");
 const sdl = @import("sdl.zig");
 const Snakez = @import("snakez.zig").Snakez;
+const RateLimiter = @import("timing.zig").RateLimiter;
 
 const title = "Snakez";
 const name = "snakez";
@@ -33,6 +34,7 @@ pub fn main() !void {
 fn run(game: *Snakez) error{ OutOfMemory, SDLError }!void {
     const winsz: u32 = @intCast(game.len * scale);
     var done = false;
+    var rate = RateLimiter.init(4);
 
     defer sdl.quit();
     sdl.setMainReady();
@@ -56,7 +58,14 @@ fn run(game: *Snakez) error{ OutOfMemory, SDLError }!void {
 
     // https://stackoverflow.com/questions/50361975/sdl-framerate-cap-implementation
 
+    rate.start();
+
     while (!done) {
+        if (rate.elapsed()) {
+            game.tick();
+            try render(renderer, game);
+        }
+
         while (sdl.pollEvent()) |event| {
             switch (event.type) {
                 sdl.sdl3.SDL_EVENT_WINDOW_EXPOSED => {

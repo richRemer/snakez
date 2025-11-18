@@ -20,6 +20,14 @@ pub fn getError() []const u8 {
     return slice;
 }
 
+pub fn getTicks() u64 {
+    return sdl3.SDL_GetTicks();
+}
+
+pub fn getTicksNS() u64 {
+    return sdl3.SDL_GetTicksNS();
+}
+
 pub fn init(flags: SubSystem) error{SDLError}!void {
     if (!sdl3.SDL_Init(@bitCast(flags))) {
         return error.SDLError;
